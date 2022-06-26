@@ -128,6 +128,7 @@ public class CloudDrive {
         return try await fileManager.contentsOfDirectory(coordinatingAccessAt: dirURL)
     }
     
+    /// Removes a directory at the path passed
     public func removeDirectory(at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let dirURL = try path.directoryURL(forRoot: rootDirectory)
@@ -136,6 +137,7 @@ public class CloudDrive {
         return try await fileManager.removeItem(coordinatingAccessAt: dirURL)
     }
     
+    /// Removes a file at the path passed. If there is no file, or there is a directory, it gives an error
     public func removeFile(at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
@@ -144,24 +146,30 @@ public class CloudDrive {
         return try await fileManager.removeItem(coordinatingAccessAt: fileURL)
     }
     
+    /// Copies a file from outside the container, into the container. If there is a file already at the destination
+    /// it will give an error and fail.
     public func upload(from fromURL: URL, to path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let toURL = try path.fileURL(forRoot: rootDirectory)
         try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL)
     }
     
+    /// Attempts to copy a file inside the container out to a file URL not in the cloud.
     public func download(from path: RootRelativePath, toURL: URL) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fromURL = try path.fileURL(forRoot: rootDirectory)
         try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL)
     }
     
+    /// Reads the contents of a file in the cloud, returning it as data.
     public func readFile(at path: RootRelativePath) async throws -> Data {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
         return try await fileManager.contentsOfFile(coordinatingAccessAt: fileURL)
     }
     
+    /// Writes the contents of a file. If the file doesn't exist, it will be created. If it already exists,
+    /// it will be overwritten.
     public func writeFile(with data: Data, at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
