@@ -1,6 +1,6 @@
 # SwiftCloudDrive
 
-Author; Drew McCormack ([@drewmccormack](https://twitter.com/drewmccormack))
+Author: Drew McCormack ([@drewmccormack](https://twitter.com/drewmccormack))
 
 An easy to use Swift wrapper around iCloud Drive. 
 
@@ -12,12 +12,12 @@ as easy as working locally with `FileManager`.
 ## When is SwiftCloudDrive a Good Solution?
 
 For advanced uses of iCloud, you should probably use Apple's
-frameworks directly. This gives you most control, at the cost
-of a steep learning curve.
+frameworks directly. This gives you most control, in exchange
+for a steep learning curve.
 
 For example, if you need complete control over when files in iCloud Drive get 
-downloaded to device, or have an app like Apple's Photos, where it is often 
-desireable to leave files in the cloud until they are requested by the user, 
+downloaded to a device, or have an app like Apple's Photos, where it is often 
+desirable to leave files in the cloud until they are requested by the user, 
 you should not use SwiftCloudDrive.
 
 If you want all of your app's iCloud Drive files on device, as well as
@@ -29,11 +29,14 @@ works much the same as the `FileManager` type you are already familiar with.
 
 ## Using SwiftCloudDrive
 
-### Setting Up a Drive
+### Integrating the Package
 
 To get started, add the SwiftCloudDrive package to your Xcode project,
 and then enable iCloud Drive in the Signing & Capabilities
-tab of your app's target in Xcode.
+tab of your app's target in Xcode. You can accept the default 
+container identifier, or choose a custom one.
+
+### Setting Up a Drive
 
 If you are using the default iCloud container, setting up a `CloudDrive` in
 your app's source code can be as simple as this
@@ -43,7 +46,7 @@ your app's source code can be as simple as this
 
 If you have a custom iCloud container, simply pass the identifier in.
 
-    let customDrive = CloudDrive(ubiquityContainerIdentifier: "iCloud.custom.container.you.chose")
+    let customDrive = CloudDrive(ubiquityContainerIdentifier: "iCloud.com.yourcompany.app")
     
 In the cases above, you will be accessing files directly in the root of
 the container, but you can also anchor your `CloudDrive` at a particular 
@@ -104,7 +107,7 @@ or you can write `Data` directly into a file.
 In this case we use the built in static constant `root` to build a path, but 
 we could also have just used `RootRelativePath("file.txt")`.
 
-To upload a file outside of the cloud container, you use code like this
+To upload a file from outside of the cloud container, you use code like this
 
     try await drive.upload(from: "/Users/eddy/Desktop/image.jpeg", to: .images.appending("image.jpeg"))
 
@@ -121,7 +124,7 @@ Alternatively, you can write the contents without first removing the existing fi
 
     try await drive.writeFile(with: newImageData, at: cloudPath)
     
-If you need even finer control, you can make any in-place update you prefer, like this
+If you need even finer control, you can make any in-place update you favor, like this
 
     try await drive.updateFile(at: imagePath) { fileURL in
         // Make any changes you like to the file at `fileURL`
@@ -141,16 +144,19 @@ is thrown.
 ### Observing Remote Changes
 
 When working with changes on remote devices, it is important to know when 
-new files have downloaded, or updates applied. You can register a `CloudDriveObserver`
+new files have downloaded, or updates have been applied. You can register a `CloudDriveObserver`
 for this purpose.
 
-    class AppDelegate: CloudDriveObserver {
+    class Controller: CloudDriveObserver {
         func cloudDriveDidChange(rootRelativePaths: [RootRelativePath]) {
             // Decide if data needs refetching due to remote changes,
             // or if changes need to be applied in the UI
         }
     }
+    
+    let controller = Controller()
+    drive.observer = controller
 
-Note that the relative paths passed are not necessarily new files, but could 
-be updated, or even removed. Your code should take these possibilities into 
-account.
+Note that the relative paths passed to the observer are not necessarily new files, 
+but could be files with updates, or even files that were removed. 
+Your code should take these possibilities into account, and adapt appropriately.
