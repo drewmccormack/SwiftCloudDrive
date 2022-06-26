@@ -41,19 +41,25 @@ container identifier, or choose a custom one.
 If you are using the default iCloud container, setting up a `CloudDrive` in
 your app's source code can be as simple as this
 
-    import SwiftCloudDrive
-    let drive = CloudDrive()
+```swift
+import SwiftCloudDrive
+let drive = CloudDrive()
+```
 
 If you have a custom iCloud container, simply pass the identifier in.
 
-    let customDrive = CloudDrive(ubiquityContainerIdentifier: "iCloud.com.yourcompany.app")
-    
+```swift
+let customDrive = CloudDrive(ubiquityContainerIdentifier: "iCloud.com.yourcompany.app")
+```
+
 In the cases above, you will be accessing files directly in the root of
 the container, but you can also anchor your `CloudDrive` at a particular 
 subdirectory of the container, like this
 
-    let subDrive = CloudDrive(relativePathToRootInContainer: "Sub/Directory/Of/Choice")
-    
+```swift
+let subDrive = CloudDrive(relativePathToRootInContainer: "Sub/Directory/Of/Choice")
+```
+
 The `CloudDrive` will create the root directory for you, if it doesn't exist.
     
 ### Querying File Status
@@ -64,12 +70,16 @@ be remote and have to download, all function calls are `async`.
 
 To determine if a directory exists, you would do this
 
-    let path = RootRelativePath(path: "Path/To/Dir")
-    let exists = try await drive.directoryExists(at: path)
-    
+```swift
+let path = RootRelativePath(path: "Path/To/Dir")
+let exists = try await drive.directoryExists(at: path)
+```
+
 If you want to know if a particular file exists, you would use this
 
-    let exists = try await drive.fileExists(at: path)
+```swift
+let exists = try await drive.fileExists(at: path)
+```
 
 ### Working with Paths
 
@@ -79,12 +89,14 @@ is used to reference paths relative to the root of the `CloudDrive`.
 If you use particular fixed paths often, it is useful to extend `RootRelativePath`
 to define static constants.
 
-    extension RootRelativePath {
-        static let images = Self(path: "Images")
-    }
-    
-    let imagesExist = try await drive.directoryExists(at: .images)
-    let dogImageExists = try await drive.fileExists(at: .images.appending("Dog.jpeg"))
+```swift
+extension RootRelativePath {
+    static let images = Self(path: "Images")
+}
+
+let imagesExist = try await drive.directoryExists(at: .images)
+let dogImageExists = try await drive.fileExists(at: .images.appending("Dog.jpeg"))
+```
 
 As you can see, the `RootRelativePath` also defines an `appending` function
 which makes it simple to extend an existing path.
@@ -94,50 +106,64 @@ which makes it simple to extend an existing path.
 Creating a directory in the cloud is just as easy. Note that if there are missing
 intermediate directories, these are always created too.
 
-    try await drive.createDirectory(at: .images)
+```swift
+try await drive.createDirectory(at: .images)
+```
 
 ### Uploading and Downloading Files
 
 To move files into the cloud, you can 'upload' a local file to the container,
 or you can write `Data` directly into a file.
 
-    let data = "Some text".data(using: .utf8)!
-    try await drive.writeFile(with: data, at: .root.appending("file.txt"))
-    
+```swift
+let data = "Some text".data(using: .utf8)!
+try await drive.writeFile(with: data, at: .root.appending("file.txt"))
+```
+
 In this case we use the built in static constant `root` to build a path, but 
 we could also have just used `RootRelativePath("file.txt")`.
 
 To upload a file from outside of the cloud container, you use code like this
 
-    try await drive.upload(from: "/Users/eddy/Desktop/image.jpeg", to: .images.appending("image.jpeg"))
+```swift
+try await drive.upload(from: "/Users/eddy/Desktop/image.jpeg", to: .images.appending("image.jpeg"))
+```
 
 ### Updating Files
 
 Once you have a file in the cloud, you can change it by uploading again, but you must 
 first delete the old version, otherwise an error will arise.
 
-    let cloudPath: RootRelativePath = .images.appending("image.jpeg")
-    try? await drive.removeFile(at: cloudPath)
-    try await drive.upload(from: "/Users/eddy/Desktop/image_new.jpeg", to: cloudPath)
+```swift
+let cloudPath: RootRelativePath = .images.appending("image.jpeg")
+try? await drive.removeFile(at: cloudPath)
+try await drive.upload(from: "/Users/eddy/Desktop/image_new.jpeg", to: cloudPath)
+```
 
 Alternatively, you can write the contents without first removing the existing file.
 
-    try await drive.writeFile(with: newImageData, at: cloudPath)
-    
+```swift
+try await drive.writeFile(with: newImageData, at: cloudPath)
+```
+
 If you need even finer control, you can make any in-place update you favor, like this
 
-    try await drive.updateFile(at: imagePath) { fileURL in
-        // Make any changes you like to the file at `fileURL`
-        // You can also throw an error
-    }
+```swift
+try await drive.updateFile(at: imagePath) { fileURL in
+    // Make any changes you like to the file at `fileURL`
+    // You can also throw an error
+}
+```
 
 ### Removing Files and Directories
 
 As we have already seen, you can very easily remove files and directories.
 
-    try await drive.removeFile(at: cloudFilePath)
-    try await drive.removeDirectory(at: cloudDirPath)
-    
+```swift
+try await drive.removeFile(at: cloudFilePath)
+try await drive.removeDirectory(at: cloudDirPath)
+```
+
 If the wrong type of item is encountered, the removal fails and an error
 is thrown.
 
@@ -147,15 +173,17 @@ When working with changes on remote devices, it is important to know when
 new files have downloaded, or updates have been applied. You can register a `CloudDriveObserver`
 for this purpose.
 
-    class Controller: CloudDriveObserver {
-        func cloudDriveDidChange(rootRelativePaths: [RootRelativePath]) {
-            // Decide if data needs refetching due to remote changes,
-            // or if changes need to be applied in the UI
-        }
+```swift
+class Controller: CloudDriveObserver {
+    func cloudDriveDidChange(rootRelativePaths: [RootRelativePath]) {
+        // Decide if data needs refetching due to remote changes,
+        // or if changes need to be applied in the UI
     }
-    
-    let controller = Controller()
-    drive.observer = controller
+}
+
+let controller = Controller()
+drive.observer = controller
+```
 
 Note that the relative paths passed to the observer are not necessarily new files, 
 but could be files with updates, or even files that were removed. 
