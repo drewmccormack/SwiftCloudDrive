@@ -62,7 +62,7 @@ public class CloudDrive {
         if !Self.testMode {
             self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
             self.metadataMonitor!.changeHandler = { [weak self] changedPaths in
-                guard let self else { return }
+                guard let self = self else { return }
                 self.observer?.cloudDriveDidChange(rootRelativePaths: changedPaths)
             }
         } else {

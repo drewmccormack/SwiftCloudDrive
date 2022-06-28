@@ -29,13 +29,13 @@ class MetadataMonitor {
     func startMonitoringMetadata() {
         let predicate: NSPredicate
         #if os(iOS)
-            predicate = NSPredicate(format: "%K = FALSE AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemIsDownloadedKey, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
+            predicate = NSPredicate(format: "%K = FALSE AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
         #else
             predicate = NSPredicate(format: "%K != %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusCurrent, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
         #endif
         
         metadataQuery = NSMetadataQuery()
-        guard let metadataQuery else { fatalError() }
+        guard let metadataQuery = metadataQuery else { fatalError() }
         
         metadataQuery.notificationBatchingInterval = 5.0
         metadataQuery.searchScopes = [NSMetadataQueryUbiquitousDataScope]
@@ -48,7 +48,7 @@ class MetadataMonitor {
     }
     
     func stopMonitoring() {
-        guard let metadataQuery else { return }
+        guard let metadataQuery = metadataQuery else { fatalError() }
         metadataQuery.disableUpdates()
         metadataQuery.stop()
         NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
@@ -63,8 +63,8 @@ class MetadataMonitor {
     }
     
     private func initiateDownloads() async {
-        guard let metadataQuery else { return }
-        
+        guard let metadataQuery = metadataQuery else { fatalError() }
+
         metadataQuery.disableUpdates()
         
         guard let results = metadataQuery.results as? [NSMetadataItem] else { return }
@@ -94,7 +94,7 @@ class MetadataMonitor {
         // Inform observer
         if !urls.isEmpty {
             let rootLength = rootDirectory.standardized.path.count
-            let relativePaths: [RootRelativePath] = urls.map { url in
+            let relativePaths: [RootRelativePath] = urls.map { (url: URL) -> RootRelativePath in
                 let path = String(url.standardized.path.dropFirst(rootLength))
                 return RootRelativePath(path: path)
             }
