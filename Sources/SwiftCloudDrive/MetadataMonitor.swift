@@ -27,12 +27,7 @@ class MetadataMonitor {
     }
     
     func startMonitoringMetadata() {
-        let predicate: NSPredicate
-        #if os(iOS)
-            predicate = NSPredicate(format: "%K = FALSE AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
-        #else
-            predicate = NSPredicate(format: "%K != %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusCurrent, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
-        #endif
+        let predicate: NSPredicate = NSPredicate(format: "%K != %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusCurrent, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
         
         metadataQuery = NSMetadataQuery()
         guard let metadataQuery = metadataQuery else { fatalError() }
