@@ -67,13 +67,9 @@ public extension FileManager {
     }
     
     private func execute(_ block: (URL) throws -> Void, onSecurityScopedResource url: URL) throws {
-        let started = url.startAccessingSecurityScopedResource()
+        _ = url.startAccessingSecurityScopedResource()
         defer { url.stopAccessingSecurityScopedResource() }
-        if started {
-            try block(url)
-        } else {
-            throw Error.failedToStartAccessingSecurityScopedResource(url)
-        }
+        try block(url)
     }
     
     private func coordinate(readingItemAt url: URL, options: NSFileCoordinator.ReadingOptions = [], with block: (URL) throws -> Void) throws {
@@ -112,18 +108,13 @@ public extension FileManager {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: readURL, options: readOptions, writingItemAt: writeURL, options: writeOptions, error: &coordinatorError) { (read: URL, write: URL) in
             do {
-                let readStarted = read.startAccessingSecurityScopedResource()
-                let writeStarted = write.startAccessingSecurityScopedResource()
+                _ = read.startAccessingSecurityScopedResource()
+                _ = write.startAccessingSecurityScopedResource()
                 defer {
                     read.stopAccessingSecurityScopedResource()
                     write.stopAccessingSecurityScopedResource()
                 }
-                
-                if readStarted && writeStarted {
-                    try block(read, write)
-                } else {
-                    throw Error.failedToStartAccessingSecurityScopedResource(readStarted ? write : read)
-                }
+                try block(read, write)
             } catch {
                 managerError = error
             }
