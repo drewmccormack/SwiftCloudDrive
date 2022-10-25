@@ -23,7 +23,9 @@ class MetadataMonitor {
     }
     
     deinit {
-        stopMonitoring()
+        if metadataQuery != nil {
+            stopMonitoring()
+        }
     }
     
     func startMonitoringMetadata() {
