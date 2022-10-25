@@ -7,8 +7,8 @@ Author: Drew McCormack ([@drewmccormack](https://twitter.com/drewmccormack))
 
 An easy to use Swift wrapper around iCloud Drive. 
 
-SwiftCloudDrive handles complexities like file coordination, file conflicts, and 
-cloud metadata queries, to provide straightforward async functions 
+SwiftCloudDrive handles complexities like file coordination, accessing security scoped resources, 
+file conflicts, and cloud metadata queries, to provide straightforward async functions 
 for working with files in iCloud. It makes handling files in the cloud almost
 as easy as working locally with `FileManager`.
 

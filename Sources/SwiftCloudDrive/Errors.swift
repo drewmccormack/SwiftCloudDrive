@@ -9,6 +9,7 @@ import Foundation
 
 public enum Error: Swift.Error, Sendable {
     case couldNotAccessUbiquityContainer
+    case failedToStartAccessingSecurityScopedResource(URL)
     case queriedWhileNotConnected
     case rootDirectoryURLIsNotDirectory
     case notSignedIntoCloud

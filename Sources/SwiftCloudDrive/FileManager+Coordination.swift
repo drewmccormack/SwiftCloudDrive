@@ -66,13 +66,23 @@ public extension FileManager {
         }
     }
     
+    private func execute(_ block: (URL) throws -> Void, onSecurityScopedResource url: URL) throws {
+        let started = url.startAccessingSecurityScopedResource()
+        defer { url.stopAccessingSecurityScopedResource() }
+        if started {
+            try block(url)
+        } else {
+            throw Error.failedToStartAccessingSecurityScopedResource(url)
+        }
+    }
+    
     private func coordinate(readingItemAt url: URL, options: NSFileCoordinator.ReadingOptions = [], with block: (URL) throws -> Void) throws {
         var coordinatorError: NSError?
         var managerError: Swift.Error?
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: url, options: options, error: &coordinatorError) { url in
             do {
-                try block(url)
+                try execute(block, onSecurityScopedResource: url)
             } catch {
                 managerError = error
             }
@@ -87,7 +97,7 @@ public extension FileManager {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(writingItemAt: url, options: options, error: &coordinatorError) { url in
             do {
-                try block(url)
+                try execute(block, onSecurityScopedResource: url)
             } catch {
                 managerError = error
             }
@@ -102,7 +112,18 @@ public extension FileManager {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         coordinator.coordinate(readingItemAt: readURL, options: readOptions, writingItemAt: writeURL, options: writeOptions, error: &coordinatorError) { (read: URL, write: URL) in
             do {
-                try block(read, write)
+                let readStarted = read.startAccessingSecurityScopedResource()
+                let writeStarted = write.startAccessingSecurityScopedResource()
+                defer {
+                    read.stopAccessingSecurityScopedResource()
+                    write.stopAccessingSecurityScopedResource()
+                }
+                
+                if readStarted && writeStarted {
+                    try block(read, write)
+                } else {
+                    throw Error.failedToStartAccessingSecurityScopedResource(readStarted ? write : read)
+                }
             } catch {
                 managerError = error
             }
