@@ -3,7 +3,7 @@
 
 # SwiftCloudDrive
 
-Author: Drew McCormack ([@drewmccormack](https://twitter.com/drewmccormack))
+Author: Drew McCormack (Mastodon: @drewmccormack@mastodon.cloud)
 
 An easy to use Swift wrapper around iCloud Drive. 
 
