@@ -1,0 +1,15 @@
+
+### Message in a Bottle Sample App
+
+This SwiftUI app shows the most basic possible usage of SwiftCloudDrive.
+It adds a single file to the iCloud Drive for storage of a simple text message.
+You can edit the message in the UI and hit enter to save it to the cloud.
+
+If you wish to test it yourself, you will have to...
+
+1. Change the bundle id of the app to one of your own
+2. Change the iCloud container in the entitlements to one of your own
+3. Make sure the code signing is setup
+
+With all that in place, you should be able to run the app on a device or
+simulator which is signed in to iCloud. It should also sync to other devices.
