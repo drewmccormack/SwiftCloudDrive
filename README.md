@@ -46,13 +46,13 @@ your app's source code can be as simple as this
 
 ```swift
 import SwiftCloudDrive
-let drive = CloudDrive()
+let drive = try await CloudDrive()
 ```
 
 If you have a custom iCloud container, simply pass the identifier in.
 
 ```swift
-let customDrive = CloudDrive(ubiquityContainerIdentifier: "iCloud.com.yourcompany.app")
+let customDrive = try await CloudDrive(ubiquityContainerIdentifier: "iCloud.com.yourcompany.app")
 ```
 
 In the cases above, you will be accessing files directly in the root of
@@ -60,7 +60,7 @@ the container, but you can also anchor your `CloudDrive` at a particular
 subdirectory of the container, like this
 
 ```swift
-let subDrive = CloudDrive(relativePathToRootInContainer: "Sub/Directory/Of/Choice")
+let subDrive = try await CloudDrive(relativePathToRootInContainer: "Sub/Directory/Of/Choice")
 ```
 
 The `CloudDrive` will create the root directory for you, if it doesn't exist.
