@@ -3,7 +3,7 @@ import os
 
 public protocol CloudDriveObserver {
     /// Called when the status of files changes in the drive
-    func cloudDriveDidChange(rootRelativePaths: [RootRelativePath])
+    func cloudDriveDidChange(_ cloudDrive: CloudDrive, rootRelativePaths: [RootRelativePath])
 }
 
 /// Easy to use Swift wrapper around iCloud Drive.
@@ -63,7 +63,7 @@ public class CloudDrive {
             self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
             self.metadataMonitor!.changeHandler = { [weak self] changedPaths in
                 guard let self = self else { return }
-                self.observer?.cloudDriveDidChange(rootRelativePaths: changedPaths)
+                self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
             }
         } else {
             self.metadataMonitor = nil

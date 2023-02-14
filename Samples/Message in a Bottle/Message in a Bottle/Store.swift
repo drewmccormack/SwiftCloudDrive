@@ -69,7 +69,7 @@ class Store: ObservableObject {
 
 extension Store: CloudDriveObserver {
     
-    func cloudDriveDidChange(rootRelativePaths: [SwiftCloudDrive.RootRelativePath]) {
+    func cloudDriveDidChange(_ drive: CloudDrive, rootRelativePaths: [SwiftCloudDrive.RootRelativePath]) {
         Task {
             try? await loadText()
         }
