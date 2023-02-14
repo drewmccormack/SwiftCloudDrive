@@ -178,7 +178,7 @@ for this purpose.
 
 ```swift
 class Controller: CloudDriveObserver {
-    func cloudDriveDidChange(rootRelativePaths: [RootRelativePath]) {
+    func cloudDriveDidChange(_ drive: CloudDrive, rootRelativePaths: [RootRelativePath]) {
         // Decide if data needs refetching due to remote changes,
         // or if changes need to be applied in the UI
     }
