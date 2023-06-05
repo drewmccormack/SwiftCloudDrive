@@ -65,6 +65,12 @@ public extension FileManager {
             try block(url)
         }
     }
+
+    func readFile(coordinatingAccessTo url: URL, in block: (URL) throws -> Void) async throws {
+        try coordinate(readingItemAt: url) { url in
+            try block(url)
+        }
+    }
     
     private func execute(_ block: (URL) throws -> Void, onSecurityScopedResource url: URL) throws {
         _ = url.startAccessingSecurityScopedResource()

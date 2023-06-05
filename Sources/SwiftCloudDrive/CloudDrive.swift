@@ -184,4 +184,13 @@ public class CloudDrive {
             try block(url)
         }
     }
+
+    /// As updateFile, but coordinated for reading.
+    public func readFile(at path: RootRelativePath, in block: (URL) throws -> Void) async throws {
+        guard isConnected else { throw Error.queriedWhileNotConnected }
+        let fileURL = try path.fileURL(forRoot: rootDirectory)
+        try await fileManager.readFile(coordinatingAccessTo: fileURL) { url in
+            try block(url)
+        }
+    }
 }
