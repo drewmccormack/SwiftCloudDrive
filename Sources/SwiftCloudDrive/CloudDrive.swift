@@ -32,7 +32,7 @@ public class CloudDrive {
 
     private let fileManager = FileManager()
     private let metadataMonitor: MetadataMonitor?
-    private let rootDirectory: URL
+    public let rootDirectory: URL
     
     
     // MARK: Init
