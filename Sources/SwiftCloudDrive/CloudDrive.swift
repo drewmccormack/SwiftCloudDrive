@@ -160,6 +160,14 @@ public class CloudDrive {
         let fromURL = try path.fileURL(forRoot: rootDirectory)
         try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL)
     }
+
+    /// Copies within the container.
+    public func copy(from source: RootRelativePath, to destination: RootRelativePath) async throws {
+        guard isConnected else { throw Error.queriedWhileNotConnected }
+        let sourceURL = try source.fileURL(forRoot: rootDirectory)
+        let destinationURL = try destination.fileURL(forRoot: rootDirectory)
+        try await fileManager.copyItem(coordinatingAccessFrom: sourceURL, to: destinationURL)
+    }
     
     /// Reads the contents of a file in the cloud, returning it as data.
     public func readFile(at path: RootRelativePath) async throws -> Data {
