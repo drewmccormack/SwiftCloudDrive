@@ -32,7 +32,7 @@ public class CloudDrive {
 
     private let fileManager = FileManager()
     private let metadataMonitor: MetadataMonitor?
-    private let rootDirectory: URL
+    public let rootDirectory: URL
     
     
     // MARK: Init
@@ -160,6 +160,14 @@ public class CloudDrive {
         let fromURL = try path.fileURL(forRoot: rootDirectory)
         try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL)
     }
+
+    /// Copies within the container.
+    public func copy(from source: RootRelativePath, to destination: RootRelativePath) async throws {
+        guard isConnected else { throw Error.queriedWhileNotConnected }
+        let sourceURL = try source.fileURL(forRoot: rootDirectory)
+        let destinationURL = try destination.fileURL(forRoot: rootDirectory)
+        try await fileManager.copyItem(coordinatingAccessFrom: sourceURL, to: destinationURL)
+    }
     
     /// Reads the contents of a file in the cloud, returning it as data.
     public func readFile(at path: RootRelativePath) async throws -> Data {
@@ -181,6 +189,15 @@ public class CloudDrive {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
         try await fileManager.updateFile(coordinatingAccessTo: fileURL) { url in
+            try block(url)
+        }
+    }
+
+    /// As updateFile, but coordinated for reading.
+    public func readFile(at path: RootRelativePath, in block: (URL) throws -> Void) async throws {
+        guard isConnected else { throw Error.queriedWhileNotConnected }
+        let fileURL = try path.fileURL(forRoot: rootDirectory)
+        try await fileManager.readFile(coordinatingAccessTo: fileURL) { url in
             try block(url)
         }
     }

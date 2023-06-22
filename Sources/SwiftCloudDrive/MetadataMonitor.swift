@@ -41,7 +41,7 @@ class MetadataMonitor {
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidUpdate, object: metadataQuery)
 
-        metadataQuery.start()
+        DispatchQueue.main.async { metadataQuery.start() }
     }
     
     func stopMonitoring() {
