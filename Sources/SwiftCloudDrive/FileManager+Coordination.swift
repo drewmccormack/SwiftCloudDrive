@@ -38,10 +38,10 @@ public extension FileManager {
         }
     }
     
-    func contentsOfDirectory(coordinatingAccessAt dirURL: URL) async throws -> [URL] {
+    func contentsOfDirectory(coordinatingAccessAt dirURL: URL, includingPropertiesForKeys keys: [URLResourceKey]?, options mask: FileManager.DirectoryEnumerationOptions) async throws -> [URL] {
         var contentsURLs: [URL] = []
         try coordinate(readingItemAt: dirURL) { url in
-            contentsURLs = try contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [])
+            contentsURLs = try contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask)
         }
         return contentsURLs
     }
