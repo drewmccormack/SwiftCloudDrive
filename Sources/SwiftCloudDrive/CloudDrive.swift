@@ -122,10 +122,10 @@ public class CloudDrive {
     }
     
     /// Returns the contents of a directory. It doesn't recurse into subdirectories
-    public func contentsOfDirectory(at path: RootRelativePath) async throws -> [URL] {
+    public func contentsOfDirectory(at path: RootRelativePath, includingPropertiesForKeys keys: [URLResourceKey]? = nil, options mask: FileManager.DirectoryEnumerationOptions = []) async throws -> [URL] {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let dirURL = try path.directoryURL(forRoot: rootDirectory)
-        return try await fileManager.contentsOfDirectory(coordinatingAccessAt: dirURL)
+        return try await fileManager.contentsOfDirectory(coordinatingAccessAt: dirURL, includingPropertiesForKeys: keys, options: mask)
     }
     
     /// Removes a directory at the path passed
