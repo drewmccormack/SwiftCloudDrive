@@ -6,14 +6,16 @@ final class CloudDriveTests: XCTestCase {
     var drive: CloudDrive!
     let dir1: RootRelativePath = .init(path: "Hi/There")
     
-    override class func setUp() {
-        super.setUp()
-        CloudDrive.testMode = true
+    override func setUp() async throws {
+        let tempDirPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
+        let url = URL(fileURLWithPath: tempDirPath, isDirectory: true)
+        drive = try await CloudDrive(storage: .localDirectory(rootURL: url))
+        try await super.setUp()
     }
     
-    override func setUp() async throws {
-        drive = try await CloudDrive(relativePathToRootInContainer: "SubDir")
-        try await super.setUp()
+    override func tearDown() async throws {
+        try await super.tearDown()
+        try FileManager.default.removeItem(at: drive.rootDirectory)
     }
     
     func testDirectoryCreateAndRemove() async throws {

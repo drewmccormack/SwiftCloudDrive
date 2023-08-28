@@ -14,21 +14,47 @@ public protocol CloudDriveObserver {
 /// directories, and setup an ensemble of CloudDrive objects to manage
 /// the contents.
 public class CloudDrive {
+    
+    /// Types of storage available
+    public enum Storage {
+        case iCloudContainer(containerIdentifier: String?)
+        case localDirectory(rootURL: URL)
+    }
+    
+    /// The type of storage used (eg iCloud, local)
+    public let storage: Storage
         
     /// Pass in nil to get the default container. Eg. "iCloud.my.company.app"
-    public let ubiquityContainerIdentifier: String?
+    public var ubiquityContainerIdentifier: String? {
+        if case let .iCloudContainer(id) = storage {
+            return id
+        } else {
+            return nil
+        }
+    }
     
-    /// The path of the directory for this drive, relative to the root of the ubiquity container
-    public let relativePathToRootInContainer: String
+    /// The path of the directory for this drive, relative to the root of the iCloud container
+    @available(*, deprecated, renamed: "relativePathToRoot")
+    public var relativePathToRootInContainer: String {
+        relativePathToRoot
+    }
+    
+    /// The path of the directory for this drive, relative to the root of the drive
+    public let relativePathToRoot: String
     
     /// Set this to receive notification of changes in the cloud drive
     public var observer: CloudDriveObserver?
     
     /// If the user is signed in to iCloud, this should be true. Otherwise false.
-    public var isConnected: Bool { Self.testMode || fileManager.ubiquityIdentityToken != nil }
-    
-    internal static var testMode: Bool = false
-    internal let testDirectory: URL?
+    /// When iCloud is not used, it is always true
+    public var isConnected: Bool {
+        switch storage {
+        case .iCloudContainer:
+            return fileManager.ubiquityIdentityToken != nil
+        case .localDirectory:
+            return true
+        }
+    }
 
     private let fileManager = FileManager()
     private let metadataMonitor: MetadataMonitor?
@@ -37,45 +63,37 @@ public class CloudDrive {
     
     // MARK: Init
     
-    /// Pass in the container id, but also an optional root direcotry. All relative paths will then be relative to this root.
-    public init(ubiquityContainerIdentifier: String? = nil, relativePathToRootInContainer: String = "") async throws {
-        guard Self.testMode || fileManager.ubiquityIdentityToken != nil else { throw Error.notSignedIntoCloud }
-
-        self.ubiquityContainerIdentifier = ubiquityContainerIdentifier
-        self.relativePathToRootInContainer = relativePathToRootInContainer
+    /// Pass in the type of storage (eg iCloud container), and an optional path relative to the root directory where
+    /// the drive will be anchored.
+    public init(storage: Storage, relativePathToRoot: String = "") async throws {
+        self.storage = storage
+        self.relativePathToRoot = relativePathToRoot
         
-        // Test setup
-        if Self.testMode {
-            let testDir = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
-            try fileManager.createDirectory(atPath: testDir, withIntermediateDirectories: true)
-            testDirectory = URL(fileURLWithPath: testDir, isDirectory: true)
-        } else {
-            testDirectory = nil
-        }
-        
-        // Determine URL to root directory
-        guard let containerURL = testDirectory ?? fileManager.url(forUbiquityContainerIdentifier: ubiquityContainerIdentifier) else {
-            throw Error.couldNotAccessUbiquityContainer
-        }
-        self.rootDirectory = containerURL.appendingPathComponent(relativePathToRootInContainer, isDirectory: true)
-        
-        if !Self.testMode {
+        switch storage {
+        case let .iCloudContainer(containerIdentifier):
+            guard fileManager.ubiquityIdentityToken != nil else { throw Error.notSignedIntoCloud }
+            guard let containerURL = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
+                throw Error.couldNotAccessUbiquityContainer
+            }
+            self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
+            
             self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
             self.metadataMonitor!.changeHandler = { [weak self] changedPaths in
                 guard let self = self else { return }
                 self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
             }
-        } else {
-            self.metadataMonitor = nil
+        case let .localDirectory(rootURL):
+            try fileManager.createDirectory(atPath: rootURL.path, withIntermediateDirectories: true)
+            self.rootDirectory = URL(fileURLWithPath: relativePathToRoot, isDirectory: true, relativeTo: rootURL)
+            metadataMonitor = nil
         }
         
         try await performInitialSetup()
     }
     
-    deinit {
-        if Self.testMode {
-            try? fileManager.removeItem(at: rootDirectory)
-        }
+    /// Pass in the container id, but also an optional root direcotry. All relative paths will then be relative to this root.
+    public convenience init(ubiquityContainerIdentifier: String? = nil, relativePathToRootInContainer: String = "") async throws {
+        try await self.init(storage: .iCloudContainer(containerIdentifier: ubiquityContainerIdentifier), relativePathToRoot: relativePathToRootInContainer)
     }
     
     
