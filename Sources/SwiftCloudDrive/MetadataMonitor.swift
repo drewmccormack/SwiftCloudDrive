@@ -34,8 +34,8 @@ class MetadataMonitor {
         metadataQuery = NSMetadataQuery()
         guard let metadataQuery = metadataQuery else { fatalError() }
         
-        metadataQuery.notificationBatchingInterval = 5.0
-        metadataQuery.searchScopes = [NSMetadataQueryUbiquitousDataScope]
+        metadataQuery.notificationBatchingInterval = 3.0
+        metadataQuery.searchScopes = [NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope]
         metadataQuery.predicate = predicate
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
@@ -54,22 +54,22 @@ class MetadataMonitor {
     }
     
     @objc private nonisolated func handleMetadataNotification(_ notif: Notification) {
+        let urls = updatedURLsInMetadataQuery()
+        beginDownloads(for: urls)
         Task {
-            await initiateDownloads()
+            await completeDownloads(for: urls)
         }
     }
     
-    private func initiateDownloads() async {
+    private func updatedURLsInMetadataQuery() -> [URL] {
         guard let metadataQuery = metadataQuery else { fatalError() }
-
+        
         metadataQuery.disableUpdates()
         
-        guard let results = metadataQuery.results as? [NSMetadataItem] else { return }
+        guard let results = metadataQuery.results as? [NSMetadataItem] else { return [] }
         for item in results {
             do {
                 try resolveConflicts(for: item)
-                guard let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL else { continue }
-                try fileManager.startDownloadingUbiquitousItem(at: url)
             } catch {
                 os_log("Failed to handle cloud metadata")
             }
@@ -82,8 +82,21 @@ class MetadataMonitor {
         
         metadataQuery.enableUpdates()
         
-        // Query existence of each file. This uses the file coordinator, and will
-        // wait until they are available
+        return urls
+    }
+    
+    private func beginDownloads(for urls: [URL]) {
+        for url in urls {
+            do {
+                try fileManager.startDownloadingUbiquitousItem(at: url)
+            } catch {
+                os_log("Failed to start downloading file")
+            }
+        }
+    }
+    
+    private func completeDownloads(for urls: [URL]) async {
+        // Force download
         for url in urls {
             _ = try? await fileManager.fileExists(coordinatingAccessAt: url)
         }
