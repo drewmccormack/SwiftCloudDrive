@@ -50,24 +50,13 @@ public class CloudDrive {
     public let relativePathToRoot: String
     
     /// Set this to receive notification of changes in the cloud drive. 
-    /// CloudDriveObserver must be on main actor
-    public var observer: CloudDriveObserver?
+    /// CloudDriveObserver must be on main actor.
+    /// This is now passed into the initializer to avoid certain potential race conditions.
+    public private(set) var observer: CloudDriveObserver?
     
     /// Optional conflict resolution. If not set, the most recent version wins, and others
     /// are deleted.
-    public var conflictResolver: CloudDriveConflictResolver? {
-        didSet {
-            guard let fileMonitor else { return }
-            if conflictResolver != nil {
-                fileMonitor.conflictHandler = { [weak self] rootRelativePath in
-                    guard let self else { return }
-                    self.conflictResolver?.cloudDrive(self, resolveConflictAt: rootRelativePath)
-                }
-            } else {
-                fileMonitor.conflictHandler = nil
-            }
-        }
-    }
+    public private(set) var conflictResolver: CloudDriveConflictResolver?
     
     /// If the user is signed in to iCloud, this should be true. Otherwise false.
     /// When iCloud is not used, it is always true
@@ -90,9 +79,11 @@ public class CloudDrive {
     
     /// Pass in the type of storage (eg iCloud container), and an optional path relative to the root directory where
     /// the drive will be anchored.
-    public init(storage: Storage, relativePathToRoot: String = "") async throws {
+    public init(storage: Storage, relativePathToRoot: String = "", observer: CloudDriveObserver? = nil, conflictResolver: CloudDriveConflictResolver? = nil) async throws {
         self.storage = storage
         self.relativePathToRoot = relativePathToRoot
+        self.observer = observer
+        self.conflictResolver = conflictResolver
         
         switch storage {
         case let .iCloudContainer(containerIdentifier):
@@ -110,6 +101,11 @@ public class CloudDrive {
                 Task { @MainActor in
                     self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
                 }
+            }
+            self.fileMonitor!.conflictHandler = { [weak self] rootRelativePath in
+                guard let self, let resolver = self.conflictResolver else { return false }
+                resolver.cloudDrive(self, resolveConflictAt: rootRelativePath)
+                return true
             }
         case let .localDirectory(rootURL):
             try fileManager.createDirectory(atPath: rootURL.path, withIntermediateDirectories: true)

@@ -23,7 +23,8 @@ class FileMonitor: NSObject, NSFilePresenter {
         }
     }
     
-    var conflictHandler: ((RootRelativePath)->Void)?
+    /// Returns true if resolved. If it returns false, or is nil, the default resolution is applied
+    var conflictHandler: ((RootRelativePath)->Bool)?
 
     lazy var presentedItemOperationQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -78,12 +79,9 @@ class FileMonitor: NSObject, NSFilePresenter {
     }
     
     private func resolveConflicts(for url: URL) throws {
-        // Check if caller wants to handle conflicts
-        if let conflictHandler {
-            let rootRelativePath = relativePath(for: url)
-            conflictHandler(rootRelativePath)
-            return
-        }
+        let rootRelativePath = relativePath(for: url)
+        let resolved = conflictHandler?(rootRelativePath) ?? false
+        guard !resolved else { return }
         
         let coordinator = NSFileCoordinator(filePresenter: self)
         var coordinatorError: NSError?
