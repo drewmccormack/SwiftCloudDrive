@@ -22,6 +22,8 @@ class FileMonitor: NSObject, NSFilePresenter {
             }
         }
     }
+    
+    var conflictHandler: ((RootRelativePath)->Void)?
 
     lazy var presentedItemOperationQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -63,14 +65,26 @@ class FileMonitor: NSObject, NSFilePresenter {
         }
     }
     
-    private func informOfChange(at url: URL) {
+    private func relativePath(for url: URL) -> RootRelativePath {
         let rootLength = rootDirectory.standardized.path.count
         let path = String(url.standardized.path.dropFirst(rootLength))
         let rootRelativePath = RootRelativePath(path: path)
+        return rootRelativePath
+    }
+    
+    private func informOfChange(at url: URL) {
+        let rootRelativePath = relativePath(for: url)
         changeHandler?([rootRelativePath])
     }
     
     private func resolveConflicts(for url: URL) throws {
+        // Check if caller wants to handle conflicts
+        if let conflictHandler {
+            let rootRelativePath = relativePath(for: url)
+            conflictHandler(rootRelativePath)
+            return
+        }
+        
         let coordinator = NSFileCoordinator(filePresenter: self)
         var coordinatorError: NSError?
         var versionError: Swift.Error?

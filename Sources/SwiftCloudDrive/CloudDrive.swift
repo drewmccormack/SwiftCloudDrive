@@ -7,6 +7,12 @@ public protocol CloudDriveObserver {
     func cloudDriveDidChange(_ cloudDrive: CloudDrive, rootRelativePaths: [RootRelativePath])
 }
 
+public protocol CloudDriveConflictResolver {
+    /// Called if you want to manually handle file conflicts. When you return, the file conflict shoud be resolved,
+    /// so that NSFileVersion.isConflict is false.
+    func cloudDrive(_ cloudDrive: CloudDrive, resolveConflictAt path: RootRelativePath)
+}
+
 /// Easy to use Swift wrapper around iCloud Drive.
 /// This class is greedy when it comes to data downloads, ie, it will
 /// download any file it observes in iCloud that is descended from its
@@ -46,6 +52,22 @@ public class CloudDrive {
     /// Set this to receive notification of changes in the cloud drive. 
     /// CloudDriveObserver must be on main actor
     public var observer: CloudDriveObserver?
+    
+    /// Optional conflict resolution. If not set, the most recent version wins, and others
+    /// are deleted.
+    public var conflictResolver: CloudDriveConflictResolver? {
+        didSet {
+            guard let fileMonitor else { return }
+            if conflictResolver != nil {
+                fileMonitor.conflictHandler = { [weak self] rootRelativePath in
+                    guard let self else { return }
+                    self.conflictResolver?.cloudDrive(self, resolveConflictAt: rootRelativePath)
+                }
+            } else {
+                fileMonitor.conflictHandler = nil
+            }
+        }
+    }
     
     /// If the user is signed in to iCloud, this should be true. Otherwise false.
     /// When iCloud is not used, it is always true
