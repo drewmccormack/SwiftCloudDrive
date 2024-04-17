@@ -11,7 +11,7 @@ import Foundation
 /// These methods handle file coordination, which is quite useful
 public extension FileManager {
             
-    func fileExists(coordinatingAccessAt fileURL: URL) async throws -> (exists: Bool, isDirectory: Bool) {
+    func fileExists(coordinatingAccessAt fileURL: URL, presenter: NSFilePresenter? = nil) async throws -> (exists: Bool, isDirectory: Bool) {
         var isDir: ObjCBool = false
         var exists: Bool = false
         try coordinate(readingItemAt: fileURL) { url in
@@ -20,54 +20,54 @@ public extension FileManager {
         return (exists, isDir.boolValue)
     }
     
-    func createDirectory(coordinatingAccessAt dirURL: URL, withIntermediateDirectories: Bool) async throws {
-        try coordinate(writingItemAt: dirURL, options: .forMerging) { url in
+    func createDirectory(coordinatingAccessAt dirURL: URL, withIntermediateDirectories: Bool, presenter: NSFilePresenter? = nil) async throws {
+        try coordinate(writingItemAt: dirURL, options: .forMerging, presenter: presenter) { url in
             try createDirectory(at: url, withIntermediateDirectories: withIntermediateDirectories)
         }
     }
     
-    func removeItem(coordinatingAccessAt dirURL: URL) async throws {
-        try coordinate(writingItemAt: dirURL, options: .forDeleting) { url in
+    func removeItem(coordinatingAccessAt dirURL: URL, presenter: NSFilePresenter? = nil) async throws {
+        try coordinate(writingItemAt: dirURL, options: .forDeleting, presenter: presenter) { url in
             try removeItem(at: url)
         }
     }
     
-    func copyItem(coordinatingAccessFrom fromURL: URL, to toURL: URL) async throws {
-        try coordinate(readingItemAt: fromURL, readOptions: [], writingItemAt: toURL, writeOptions: .forReplacing) { readURL, writeURL in
+    func copyItem(coordinatingAccessFrom fromURL: URL, to toURL: URL, presenter: NSFilePresenter? = nil) async throws {
+        try coordinate(readingItemAt: fromURL, readOptions: [], writingItemAt: toURL, writeOptions: .forReplacing, presenter: presenter) { readURL, writeURL in
             try copyItem(at: readURL, to: writeURL)
         }
     }
     
-    func contentsOfDirectory(coordinatingAccessAt dirURL: URL, includingPropertiesForKeys keys: [URLResourceKey]?, options mask: FileManager.DirectoryEnumerationOptions) async throws -> [URL] {
+    func contentsOfDirectory(coordinatingAccessAt dirURL: URL, includingPropertiesForKeys keys: [URLResourceKey]?, options mask: FileManager.DirectoryEnumerationOptions, presenter: NSFilePresenter? = nil) async throws -> [URL] {
         var contentsURLs: [URL] = []
-        try coordinate(readingItemAt: dirURL) { url in
+        try coordinate(readingItemAt: dirURL, presenter: presenter) { url in
             contentsURLs = try contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask)
         }
         return contentsURLs
     }
     
-    func contentsOfFile(coordinatingAccessAt url: URL) async throws -> Data {
+    func contentsOfFile(coordinatingAccessAt url: URL, presenter: NSFilePresenter? = nil) async throws -> Data {
         var data: Data = .init()
-        try coordinate(readingItemAt: url) { url in
+        try coordinate(readingItemAt: url, presenter: presenter) { url in
             data = try Data(contentsOf: url)
         }
         return data
     }
     
-    func write(_ data: Data, coordinatingAccessTo url: URL) async throws {
-        try coordinate(writingItemAt: url) { url in
+    func write(_ data: Data, coordinatingAccessTo url: URL, presenter: NSFilePresenter? = nil) async throws {
+        try coordinate(writingItemAt: url, presenter: presenter) { url in
             try data.write(to: url)
         }
     }
     
-    func updateFile(coordinatingAccessTo url: URL, in block: (URL) throws -> Void) async throws {
-        try coordinate(writingItemAt: url) { url in
+    func updateFile(coordinatingAccessTo url: URL, presenter: NSFilePresenter? = nil, in block: (URL) throws -> Void) async throws {
+        try coordinate(writingItemAt: url, presenter: presenter) { url in
             try block(url)
         }
     }
 
-    func readFile(coordinatingAccessTo url: URL, in block: (URL) throws -> Void) async throws {
-        try coordinate(readingItemAt: url) { url in
+    func readFile(coordinatingAccessTo url: URL, presenter: NSFilePresenter? = nil, in block: (URL) throws -> Void) async throws {
+        try coordinate(readingItemAt: url, presenter: presenter) { url in
             try block(url)
         }
     }
@@ -82,10 +82,10 @@ public extension FileManager {
         try block(url)
     }
     
-    private func coordinate(readingItemAt url: URL, options: NSFileCoordinator.ReadingOptions = [], with block: (URL) throws -> Void) throws {
+    private func coordinate(readingItemAt url: URL, options: NSFileCoordinator.ReadingOptions = [], presenter: NSFilePresenter? = nil, with block: (URL) throws -> Void) throws {
         var coordinatorError: NSError?
         var managerError: Swift.Error?
-        let coordinator = NSFileCoordinator(filePresenter: nil)
+        let coordinator = NSFileCoordinator(filePresenter: presenter)
         coordinator.coordinate(readingItemAt: url, options: options, error: &coordinatorError) { url in
             do {
                 try execute(block, onSecurityScopedResource: url)
@@ -97,10 +97,10 @@ public extension FileManager {
         guard managerError == nil else { throw managerError! }
     }
     
-    private func coordinate(writingItemAt url: URL, options: NSFileCoordinator.WritingOptions = [], with block: (URL) throws -> Void) throws {
+    private func coordinate(writingItemAt url: URL, options: NSFileCoordinator.WritingOptions = [], presenter: NSFilePresenter? = nil, with block: (URL) throws -> Void) throws {
         var coordinatorError: NSError?
         var managerError: Swift.Error?
-        let coordinator = NSFileCoordinator(filePresenter: nil)
+        let coordinator = NSFileCoordinator(filePresenter: presenter)
         coordinator.coordinate(writingItemAt: url, options: options, error: &coordinatorError) { url in
             do {
                 try execute(block, onSecurityScopedResource: url)
@@ -112,10 +112,10 @@ public extension FileManager {
         guard managerError == nil else { throw managerError! }
     }
     
-    private func coordinate(readingItemAt readURL: URL, readOptions: NSFileCoordinator.ReadingOptions = [], writingItemAt writeURL: URL, writeOptions: NSFileCoordinator.WritingOptions = [], with block: (_ readURL: URL, _ writeURL: URL) throws -> Void) throws {
+    private func coordinate(readingItemAt readURL: URL, readOptions: NSFileCoordinator.ReadingOptions = [], writingItemAt writeURL: URL, writeOptions: NSFileCoordinator.WritingOptions = [], presenter: NSFilePresenter? = nil, with block: (_ readURL: URL, _ writeURL: URL) throws -> Void) throws {
         var coordinatorError: NSError?
         var managerError: Swift.Error?
-        let coordinator = NSFileCoordinator(filePresenter: nil)
+        let coordinator = NSFileCoordinator(filePresenter: presenter)
         coordinator.coordinate(readingItemAt: readURL, options: readOptions, writingItemAt: writeURL, options: writeOptions, error: &coordinatorError) { (read: URL, write: URL) in
             do {
                 let shouldStopAccessingRead = read.startAccessingSecurityScopedResource()

@@ -1,6 +1,7 @@
 import Foundation
 import os
 
+@MainActor
 public protocol CloudDriveObserver {
     /// Called when the status of files changes in the drive
     func cloudDriveDidChange(_ cloudDrive: CloudDrive, rootRelativePaths: [RootRelativePath])
@@ -11,7 +12,7 @@ public protocol CloudDriveObserver {
 /// download any file it observes in iCloud that is descended from its
 /// root directory. If you need partial downloading of files, this is not
 /// a good solution, unless you can partition the data between root
-/// directories, and setup an ensemble of CloudDrive objects to manage
+/// directories, and setup an cluster of CloudDrive objects to manage
 /// the contents.
 public class CloudDrive {
     
@@ -42,7 +43,8 @@ public class CloudDrive {
     /// The path of the directory for this drive, relative to the root of the drive
     public let relativePathToRoot: String
     
-    /// Set this to receive notification of changes in the cloud drive
+    /// Set this to receive notification of changes in the cloud drive. 
+    /// CloudDriveObserver must be on main actor
     public var observer: CloudDriveObserver?
     
     /// If the user is signed in to iCloud, this should be true. Otherwise false.
@@ -58,6 +60,7 @@ public class CloudDrive {
 
     private let fileManager = FileManager()
     private let metadataMonitor: MetadataMonitor?
+    private let fileMonitor: FileMonitor?
     public let rootDirectory: URL
     
     
@@ -78,14 +81,19 @@ public class CloudDrive {
             self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
             
             self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
-            self.metadataMonitor!.changeHandler = { [weak self] changedPaths in
-                guard let self = self else { return }
-                self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
+            
+            self.fileMonitor = FileMonitor(rootDirectory: containerURL)
+            self.fileMonitor!.changeHandler = { [weak self] changedPaths in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
+                }
             }
         case let .localDirectory(rootURL):
             try fileManager.createDirectory(atPath: rootURL.path, withIntermediateDirectories: true)
             self.rootDirectory = URL(fileURLWithPath: relativePathToRoot, isDirectory: true, relativeTo: rootURL)
             metadataMonitor = nil
+            fileMonitor = nil
         }
         
         try await performInitialSetup()
@@ -120,7 +128,7 @@ public class CloudDrive {
     public func fileExists(at path: RootRelativePath) async throws -> Bool {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
-        let result = try await fileManager.fileExists(coordinatingAccessAt: fileURL)
+        let result = try await fileManager.fileExists(coordinatingAccessAt: fileURL, presenter: fileMonitor)
         return result.exists && !result.isDirectory
     }
     
@@ -128,7 +136,7 @@ public class CloudDrive {
     public func directoryExists(at path: RootRelativePath) async throws -> Bool {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let dirURL = try path.directoryURL(forRoot: rootDirectory)
-        let result = try await fileManager.fileExists(coordinatingAccessAt: dirURL)
+        let result = try await fileManager.fileExists(coordinatingAccessAt: dirURL, presenter: fileMonitor)
         return result.exists && result.isDirectory
     }
     
@@ -136,32 +144,32 @@ public class CloudDrive {
     public func createDirectory(at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let dirURL = try path.directoryURL(forRoot: rootDirectory)
-        return try await fileManager.createDirectory(coordinatingAccessAt: dirURL, withIntermediateDirectories: true)
+        return try await fileManager.createDirectory(coordinatingAccessAt: dirURL, withIntermediateDirectories: true, presenter: fileMonitor)
     }
     
     /// Returns the contents of a directory. It doesn't recurse into subdirectories
     public func contentsOfDirectory(at path: RootRelativePath, includingPropertiesForKeys keys: [URLResourceKey]? = nil, options mask: FileManager.DirectoryEnumerationOptions = []) async throws -> [URL] {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let dirURL = try path.directoryURL(forRoot: rootDirectory)
-        return try await fileManager.contentsOfDirectory(coordinatingAccessAt: dirURL, includingPropertiesForKeys: keys, options: mask)
+        return try await fileManager.contentsOfDirectory(coordinatingAccessAt: dirURL, includingPropertiesForKeys: keys, options: mask, presenter: fileMonitor)
     }
     
     /// Removes a directory at the path passed
     public func removeDirectory(at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let dirURL = try path.directoryURL(forRoot: rootDirectory)
-        let result = try await fileManager.fileExists(coordinatingAccessAt: dirURL)
+        let result = try await fileManager.fileExists(coordinatingAccessAt: dirURL, presenter: fileMonitor)
         guard result.exists, result.isDirectory else { throw Error.invalidFileType }
-        return try await fileManager.removeItem(coordinatingAccessAt: dirURL)
+        return try await fileManager.removeItem(coordinatingAccessAt: dirURL, presenter: fileMonitor)
     }
     
     /// Removes a file at the path passed. If there is no file, or there is a directory, it gives an error
     public func removeFile(at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
-        let result = try await fileManager.fileExists(coordinatingAccessAt: fileURL)
+        let result = try await fileManager.fileExists(coordinatingAccessAt: fileURL, presenter: fileMonitor)
         guard result.exists, !result.isDirectory else { throw Error.invalidFileType }
-        return try await fileManager.removeItem(coordinatingAccessAt: fileURL)
+        return try await fileManager.removeItem(coordinatingAccessAt: fileURL, presenter: fileMonitor)
     }
     
     /// Copies a file from outside the container, into the container. If there is a file already at the destination
@@ -169,14 +177,14 @@ public class CloudDrive {
     public func upload(from fromURL: URL, to path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let toURL = try path.fileURL(forRoot: rootDirectory)
-        try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL)
+        try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL, presenter: fileMonitor)
     }
     
     /// Attempts to copy a file inside the container out to a file URL not in the cloud.
     public func download(from path: RootRelativePath, toURL: URL) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fromURL = try path.fileURL(forRoot: rootDirectory)
-        try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL)
+        try await fileManager.copyItem(coordinatingAccessFrom: fromURL, to: toURL, presenter: fileMonitor)
     }
 
     /// Copies within the container.
@@ -184,14 +192,14 @@ public class CloudDrive {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let sourceURL = try source.fileURL(forRoot: rootDirectory)
         let destinationURL = try destination.fileURL(forRoot: rootDirectory)
-        try await fileManager.copyItem(coordinatingAccessFrom: sourceURL, to: destinationURL)
+        try await fileManager.copyItem(coordinatingAccessFrom: sourceURL, to: destinationURL, presenter: fileMonitor)
     }
     
     /// Reads the contents of a file in the cloud, returning it as data.
     public func readFile(at path: RootRelativePath) async throws -> Data {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
-        return try await fileManager.contentsOfFile(coordinatingAccessAt: fileURL)
+        return try await fileManager.contentsOfFile(coordinatingAccessAt: fileURL, presenter: fileMonitor)
     }
     
     /// Writes the contents of a file. If the file doesn't exist, it will be created. If it already exists,
@@ -199,14 +207,14 @@ public class CloudDrive {
     public func writeFile(with data: Data, at path: RootRelativePath) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
-        return try await fileManager.write(data, coordinatingAccessTo: fileURL)
+        return try await fileManager.write(data, coordinatingAccessTo: fileURL, presenter: fileMonitor)
     }
 
     /// Make any change to the file contents desired for the path given. Can be used for in-place updates.
     public func updateFile(at path: RootRelativePath, in block: (URL) throws -> Void) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
-        try await fileManager.updateFile(coordinatingAccessTo: fileURL) { url in
+        try await fileManager.updateFile(coordinatingAccessTo: fileURL, presenter: fileMonitor) { url in
             try block(url)
         }
     }
@@ -215,7 +223,7 @@ public class CloudDrive {
     public func readFile(at path: RootRelativePath, in block: (URL) throws -> Void) async throws {
         guard isConnected else { throw Error.queriedWhileNotConnected }
         let fileURL = try path.fileURL(forRoot: rootDirectory)
-        try await fileManager.readFile(coordinatingAccessTo: fileURL) { url in
+        try await fileManager.readFile(coordinatingAccessTo: fileURL, presenter: fileMonitor) { url in
             try block(url)
         }
     }

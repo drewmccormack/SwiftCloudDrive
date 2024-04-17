@@ -13,9 +13,7 @@ class MetadataMonitor {
     
     let rootDirectory: URL
     let fileManager: FileManager = .init()
-    
-    var changeHandler: (([RootRelativePath])->Void)?
-    
+        
     private var metadataQuery: NSMetadataQuery?
     
     init(rootDirectory: URL) {
@@ -29,10 +27,11 @@ class MetadataMonitor {
     }
     
     func startMonitoringMetadata() {
-        let predicate: NSPredicate = NSPredicate(format: "%K != %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusCurrent, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
+        // Predicate that queries which files are in the cloud, not local, and need to begin downloading
+        let predicate: NSPredicate = NSPredicate(format: "%K = %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusNotDownloaded, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
         
         metadataQuery = NSMetadataQuery()
-        guard let metadataQuery = metadataQuery else { fatalError() }
+        guard let metadataQuery else { fatalError() }
         
         metadataQuery.notificationBatchingInterval = 3.0
         metadataQuery.searchScopes = [NSMetadataQueryUbiquitousDataScope, NSMetadataQueryUbiquitousDocumentsScope]
@@ -45,7 +44,7 @@ class MetadataMonitor {
     }
     
     func stopMonitoring() {
-        guard let metadataQuery = metadataQuery else { fatalError() }
+        guard let metadataQuery else { fatalError() }
         metadataQuery.disableUpdates()
         metadataQuery.stop()
         NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
@@ -53,39 +52,8 @@ class MetadataMonitor {
         self.metadataQuery = nil
     }
     
-    @objc private nonisolated func handleMetadataNotification(_ notif: Notification) {
+    @objc private func handleMetadataNotification(_ notif: Notification) {
         let urls = updatedURLsInMetadataQuery()
-        beginDownloads(for: urls)
-        Task {
-            await completeDownloads(for: urls)
-        }
-    }
-    
-    private func updatedURLsInMetadataQuery() -> [URL] {
-        guard let metadataQuery = metadataQuery else { fatalError() }
-        
-        metadataQuery.disableUpdates()
-        
-        guard let results = metadataQuery.results as? [NSMetadataItem] else { return [] }
-        for item in results {
-            do {
-                try resolveConflicts(for: item)
-            } catch {
-                os_log("Failed to handle cloud metadata")
-            }
-        }
-        
-        // Get the file URLs, to wait for them below.
-        let urls = results.compactMap { item in
-            item.value(forAttribute: NSMetadataItemURLKey) as? URL
-        }
-        
-        metadataQuery.enableUpdates()
-        
-        return urls
-    }
-    
-    private func beginDownloads(for urls: [URL]) {
         for url in urls {
             do {
                 try fileManager.startDownloadingUbiquitousItem(at: url)
@@ -95,49 +63,19 @@ class MetadataMonitor {
         }
     }
     
-    private func completeDownloads(for urls: [URL]) async {
-        // Force download
-        for url in urls {
-            _ = try? await fileManager.fileExists(coordinatingAccessAt: url)
+    private func updatedURLsInMetadataQuery() -> [URL] {
+        guard let metadataQuery = metadataQuery else { fatalError() }
+        
+        metadataQuery.disableUpdates()
+        
+        guard let results = metadataQuery.results as? [NSMetadataItem] else { return [] }
+        let urls = results.compactMap { item in
+            item.value(forAttribute: NSMetadataItemURLKey) as? URL
         }
         
-        // Inform observer
-        if !urls.isEmpty {
-            let rootLength = rootDirectory.standardized.path.count
-            let relativePaths: [RootRelativePath] = urls.map { (url: URL) -> RootRelativePath in
-                let path = String(url.standardized.path.dropFirst(rootLength))
-                return RootRelativePath(path: path)
-            }
-            await MainActor.run {
-                changeHandler?(relativePaths)
-            }
-        }
-    }
-    
-    private func resolveConflicts(for item: NSMetadataItem) throws {
-        guard
-            let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL,
-            let inConflict = item.value(forAttribute: NSMetadataUbiquitousItemHasUnresolvedConflictsKey) as? Bool else {
-            throw Error.invalidMetadata
-        }
-        guard inConflict else { return }
+        metadataQuery.enableUpdates()
         
-        let coordinator = NSFileCoordinator(filePresenter: nil)
-        var coordinatorError: NSError?
-        var versionError: Swift.Error?
-        coordinator.coordinate(writingItemAt: url, options: .forDeleting, error: &coordinatorError) { newURL in
-            do {
-                try NSFileVersion.removeOtherVersionsOfItem(at: newURL)
-            } catch {
-                versionError = error
-            }
-        }
-        
-        guard versionError == nil else { throw versionError! }
-        guard coordinatorError == nil else { throw Error.foundationError(coordinatorError!) }
-        
-        let conflictVersions = NSFileVersion.unresolvedConflictVersionsOfItem(at: url)
-        conflictVersions?.forEach { $0.isResolved = true }
+        return urls
     }
     
 }
