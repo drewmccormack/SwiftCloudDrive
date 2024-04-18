@@ -49,19 +49,11 @@ public class CloudDrive {
     public let relativePathToRoot: String
     
     /// Set this to receive notification of changes in the cloud drive. 
-    /// CloudDriveObserver must be on main actor.
-    /// This is now passed into the initializer to avoid certain potential race conditions.
-    public var observer: CloudDriveObserver? {
-        get { _observer }
-        
-        @available(*, deprecated, message: "Setting observer outside init will be removed in future. Use the initializer instead.")
-        set { _observer = newValue }
-    }
-    private var _observer: CloudDriveObserver?
+    public var observer: CloudDriveObserver?
     
     /// Optional conflict resolution. If not set, the most recent version wins, and others
     /// are deleted.
-    public private(set) var conflictResolver: CloudDriveConflictResolver?
+    public var conflictResolver: CloudDriveConflictResolver?
     
     /// If the user is signed in to iCloud, this should be true. Otherwise false.
     /// When iCloud is not used, it is always true
@@ -84,11 +76,9 @@ public class CloudDrive {
     
     /// Pass in the type of storage (eg iCloud container), and an optional path relative to the root directory where
     /// the drive will be anchored.
-    public init(storage: Storage, relativePathToRoot: String = "", observer: CloudDriveObserver? = nil, conflictResolver: CloudDriveConflictResolver? = nil) async throws {
+    public init(storage: Storage, relativePathToRoot: String = "") async throws {
         self.storage = storage
         self.relativePathToRoot = relativePathToRoot
-        self._observer = observer
-        self.conflictResolver = conflictResolver
         
         let rootDir: URL
         switch storage {
@@ -108,23 +98,24 @@ public class CloudDrive {
         }
         
         // Use the FileMonitor even for non-ubiquitious files
-        self.fileMonitor = FileMonitor(rootDirectory: rootDir)
-        self.fileMonitor!.changeHandler = { [weak self] changedPaths in
-            guard let self else { return }
-            self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
+        let monitor = FileMonitor(rootDirectory: rootDir)
+        self.fileMonitor = monitor
+        monitor.changeHandler = { [weak self] changedPaths in
+            guard let self, let observer = self.observer else { return }
+            observer.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
         }
-        self.fileMonitor!.conflictHandler = { [weak self] rootRelativePath in
+        monitor.conflictHandler = { [weak self] rootRelativePath in
             guard let self, let resolver = self.conflictResolver else { return false }
             resolver.cloudDrive(self, resolveConflictAt: rootRelativePath)
             return true
         }
-        
+
         try await performInitialSetup()
     }
     
     /// Pass in the container id, but also an optional root direcotry. All relative paths will then be relative to this root.
-    public convenience init(ubiquityContainerIdentifier: String? = nil, relativePathToRootInContainer: String = "", observer: CloudDriveObserver? = nil, conflictResolver: CloudDriveConflictResolver? = nil) async throws {
-        try await self.init(storage: .iCloudContainer(containerIdentifier: ubiquityContainerIdentifier), relativePathToRoot: relativePathToRootInContainer, observer: observer, conflictResolver: conflictResolver)
+    public convenience init(ubiquityContainerIdentifier: String? = nil, relativePathToRootInContainer: String = "") async throws {
+        try await self.init(storage: .iCloudContainer(containerIdentifier: ubiquityContainerIdentifier), relativePathToRoot: relativePathToRootInContainer)
     }
     
     
@@ -132,7 +123,10 @@ public class CloudDrive {
 
     private func performInitialSetup() async throws {
         try await setupRootDirectory()
-        metadataMonitor?.startMonitoringMetadata()
+        Task {
+            metadataMonitor?.startMonitoringMetadata()
+            fileMonitor?.startMonitoring()
+        }
     }
     
     private func setupRootDirectory() async throws {

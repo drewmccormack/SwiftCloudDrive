@@ -15,13 +15,7 @@ class FileMonitor: NSObject, NSFilePresenter {
     var presentedItemURL: URL? { rootDirectory }
 
     /// Called when any file changes, is added, or removed
-    var changeHandler: (([RootRelativePath])->Void)? {
-        didSet {
-            if oldValue == nil {
-                NSFileCoordinator.addFilePresenter(self)
-            }
-        }
-    }
+    var changeHandler: (([RootRelativePath])->Void)?
     
     /// Returns true if resolved. If it returns false, or is nil, the default resolution is applied
     var conflictHandler: ((RootRelativePath)->Bool)?
@@ -39,6 +33,11 @@ class FileMonitor: NSObject, NSFilePresenter {
     
     deinit {
         NSFileCoordinator.removeFilePresenter(self)
+    }
+    
+    /// This needs to be called when the monitor is fully setup
+    func startMonitoring() {
+        NSFileCoordinator.addFilePresenter(self)
     }
     
     func presentedSubitemDidAppear(at url: URL) {
