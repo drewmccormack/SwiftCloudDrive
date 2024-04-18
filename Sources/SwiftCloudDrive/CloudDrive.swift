@@ -1,7 +1,6 @@
 import Foundation
 import os
 
-@MainActor
 public protocol CloudDriveObserver {
     /// Called when the status of files changes in the drive
     func cloudDriveDidChange(_ cloudDrive: CloudDrive, rootRelativePaths: [RootRelativePath])
@@ -52,7 +51,13 @@ public class CloudDrive {
     /// Set this to receive notification of changes in the cloud drive. 
     /// CloudDriveObserver must be on main actor.
     /// This is now passed into the initializer to avoid certain potential race conditions.
-    public private(set) var observer: CloudDriveObserver?
+    public var observer: CloudDriveObserver? {
+        get { _observer }
+        
+        @available(*, deprecated, message: "Setting observer outside init will be removed in future. Use the initializer instead.")
+        set { _observer = newValue }
+    }
+    private var _observer: CloudDriveObserver?
     
     /// Optional conflict resolution. If not set, the most recent version wins, and others
     /// are deleted.
@@ -82,44 +87,44 @@ public class CloudDrive {
     public init(storage: Storage, relativePathToRoot: String = "", observer: CloudDriveObserver? = nil, conflictResolver: CloudDriveConflictResolver? = nil) async throws {
         self.storage = storage
         self.relativePathToRoot = relativePathToRoot
-        self.observer = observer
+        self._observer = observer
         self.conflictResolver = conflictResolver
         
+        let rootDir: URL
         switch storage {
         case let .iCloudContainer(containerIdentifier):
             guard fileManager.ubiquityIdentityToken != nil else { throw Error.notSignedIntoCloud }
             guard let containerURL = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
                 throw Error.couldNotAccessUbiquityContainer
             }
+            rootDir = containerURL
             self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
-            
             self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
-            
-            self.fileMonitor = FileMonitor(rootDirectory: containerURL)
-            self.fileMonitor!.changeHandler = { [weak self] changedPaths in
-                guard let self else { return }
-                Task { @MainActor in
-                    self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
-                }
-            }
-            self.fileMonitor!.conflictHandler = { [weak self] rootRelativePath in
-                guard let self, let resolver = self.conflictResolver else { return false }
-                resolver.cloudDrive(self, resolveConflictAt: rootRelativePath)
-                return true
-            }
         case let .localDirectory(rootURL):
+            rootDir = rootURL
             try fileManager.createDirectory(atPath: rootURL.path, withIntermediateDirectories: true)
             self.rootDirectory = URL(fileURLWithPath: relativePathToRoot, isDirectory: true, relativeTo: rootURL)
-            metadataMonitor = nil
-            fileMonitor = nil
+            self.metadataMonitor = nil
+        }
+        
+        // Use the FileMonitor even for non-ubiquitious files
+        self.fileMonitor = FileMonitor(rootDirectory: rootDir)
+        self.fileMonitor!.changeHandler = { [weak self] changedPaths in
+            guard let self else { return }
+            self.observer?.cloudDriveDidChange(self, rootRelativePaths: changedPaths)
+        }
+        self.fileMonitor!.conflictHandler = { [weak self] rootRelativePath in
+            guard let self, let resolver = self.conflictResolver else { return false }
+            resolver.cloudDrive(self, resolveConflictAt: rootRelativePath)
+            return true
         }
         
         try await performInitialSetup()
     }
     
     /// Pass in the container id, but also an optional root direcotry. All relative paths will then be relative to this root.
-    public convenience init(ubiquityContainerIdentifier: String? = nil, relativePathToRootInContainer: String = "") async throws {
-        try await self.init(storage: .iCloudContainer(containerIdentifier: ubiquityContainerIdentifier), relativePathToRoot: relativePathToRootInContainer)
+    public convenience init(ubiquityContainerIdentifier: String? = nil, relativePathToRootInContainer: String = "", observer: CloudDriveObserver? = nil, conflictResolver: CloudDriveConflictResolver? = nil) async throws {
+        try await self.init(storage: .iCloudContainer(containerIdentifier: ubiquityContainerIdentifier), relativePathToRoot: relativePathToRootInContainer, observer: observer, conflictResolver: conflictResolver)
     }
     
     
