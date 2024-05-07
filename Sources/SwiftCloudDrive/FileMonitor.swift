@@ -66,8 +66,8 @@ class FileMonitor: NSObject, NSFilePresenter {
     }
     
     private func relativePath(for url: URL) -> RootRelativePath {
-        let rootLength = rootDirectory.standardized.path.count
-        let path = String(url.standardized.path.dropFirst(rootLength))
+        let rootLength = rootDirectory.resolvingSymlinksInPath().standardized.path.count
+        let path = String(url.resolvingSymlinksInPath().standardized.path.dropFirst(rootLength))
         let rootRelativePath = RootRelativePath(path: path)
         return rootRelativePath
     }
