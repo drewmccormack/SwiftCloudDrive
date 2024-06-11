@@ -21,11 +21,18 @@ class MetadataMonitor {
     }
     
     deinit {
-        if metadataQuery != nil {
-            stopMonitoring()
+        NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
+        NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidUpdate, object: metadataQuery)
+        
+        nonisolated(unsafe) let query = metadataQuery
+        Task { @MainActor in
+            guard let query else { return }
+            query.disableUpdates()
+            query.stop()
         }
     }
     
+    @MainActor
     func startMonitoringMetadata() {
         // Predicate that queries which files are in the cloud, not local, and need to begin downloading
         let predicate: NSPredicate = NSPredicate(format: "%K = %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusNotDownloaded, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
@@ -40,16 +47,7 @@ class MetadataMonitor {
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidUpdate, object: metadataQuery)
 
-        DispatchQueue.main.async { metadataQuery.start() }
-    }
-    
-    func stopMonitoring() {
-        guard let metadataQuery else { fatalError() }
-        metadataQuery.disableUpdates()
-        metadataQuery.stop()
-        NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
-        NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidUpdate, object: metadataQuery)
-        self.metadataQuery = nil
+        metadataQuery.start()
     }
     
     @objc private func handleMetadataNotification(_ notif: Notification) {

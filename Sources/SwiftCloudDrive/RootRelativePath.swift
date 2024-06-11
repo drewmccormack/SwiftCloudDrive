@@ -12,7 +12,7 @@ import Foundation
 /// of files and directoreis.
 /// It is convenient to extend this type  and declare static
 /// instances for common files or directoeies in your app.
-public struct RootRelativePath: Hashable {
+public struct RootRelativePath: Hashable, Sendable {
     
     public var path: String
     

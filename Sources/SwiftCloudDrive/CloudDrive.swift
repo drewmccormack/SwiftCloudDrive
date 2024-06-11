@@ -123,10 +123,8 @@ public class CloudDrive {
 
     private func performInitialSetup() async throws {
         try await setupRootDirectory()
-        Task {
-            metadataMonitor?.startMonitoringMetadata()
-            fileMonitor?.startMonitoring()
-        }
+        await metadataMonitor?.startMonitoringMetadata()
+        fileMonitor?.startMonitoring()
     }
     
     private func setupRootDirectory() async throws {
