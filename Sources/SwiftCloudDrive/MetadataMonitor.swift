@@ -32,7 +32,6 @@ class MetadataMonitor {
         }
     }
     
-    @MainActor
     func startMonitoringMetadata() {
         // Predicate that queries which files are in the cloud, not local, and need to begin downloading
         let predicate: NSPredicate = NSPredicate(format: "%K = %@ AND %K = FALSE AND %K BEGINSWITH %@", NSMetadataUbiquitousItemDownloadingStatusKey, NSMetadataUbiquitousItemDownloadingStatusNotDownloaded, NSMetadataUbiquitousItemIsDownloadingKey, NSMetadataItemPathKey, rootDirectory.path)
@@ -47,7 +46,10 @@ class MetadataMonitor {
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidUpdate, object: metadataQuery)
 
-        metadataQuery.start()
+        nonisolated(unsafe) let query = metadataQuery
+        Task { @MainActor in
+            query.start()
+        }
     }
     
     @objc private func handleMetadataNotification(_ notif: Notification) {
