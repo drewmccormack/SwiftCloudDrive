@@ -23,10 +23,9 @@ class MetadataMonitor {
     deinit {
         NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
         NotificationCenter.default.removeObserver(self, name: .NSMetadataQueryDidUpdate, object: metadataQuery)
-        
-        nonisolated(unsafe) let query = metadataQuery
-        Task { @MainActor in
-            guard let query else { return }
+
+        guard let query = metadataQuery else { return }
+        query.operationQueue?.addOperation {
             query.disableUpdates()
             query.stop()
         }
@@ -46,9 +45,9 @@ class MetadataMonitor {
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidFinishGathering, object: metadataQuery)
         NotificationCenter.default.addObserver(self, selector: #selector(handleMetadataNotification(_:)), name: .NSMetadataQueryDidUpdate, object: metadataQuery)
 
-        nonisolated(unsafe) let query = metadataQuery
-        Task { @MainActor in
-            query.start()
+        metadataQuery.operationQueue = OperationQueue.main
+        metadataQuery.operationQueue?.addOperation {
+            metadataQuery.start()
         }
     }
     
