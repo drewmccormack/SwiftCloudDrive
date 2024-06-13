@@ -10,7 +10,7 @@ import os
 
 /// Monitors changes to files using file presenter. Used to notifiy of changes
 /// from remote devices.
-class FileMonitor: NSObject, NSFilePresenter {
+class FileMonitor: NSObject, NSFilePresenter, @unchecked Sendable {
     let rootDirectory: URL
     var presentedItemURL: URL? { rootDirectory }
 
