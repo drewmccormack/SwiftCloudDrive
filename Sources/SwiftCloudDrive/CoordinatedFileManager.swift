@@ -7,16 +7,19 @@
 
 import Foundation
 
-/// Wrapper for FileManager that offers async mehods
+/// Wrapper for FileManager that offers async methods
 /// These methods handle file coordination, which is quite useful
+/// An actor will block during file coordination, which means that
+/// there is no parallelism in this type. If you want to get parallelism (eg multiple threads)
+/// you should make one of these managers for each file operation.
 actor CoordinatedFileManager {
     
     private(set) var presenter: (any NSFilePresenter)?
     
     private let fileManager = FileManager()
     
-    func setFilePresenter(_ newPresenter: (any NSFilePresenter)?) {
-        presenter = newPresenter
+    init(presenter: (any NSFilePresenter)? = nil) {
+        self.presenter = presenter
     }
             
     func fileExists(coordinatingAccessAt fileURL: URL) throws -> (exists: Bool, isDirectory: Bool) {
