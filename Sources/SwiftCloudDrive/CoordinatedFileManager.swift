@@ -12,17 +12,17 @@ import Foundation
 /// An actor will block during file coordination, which means that
 /// there is no parallelism in this type. If you want to get parallelism (eg multiple threads)
 /// you should make one of these managers for each file operation.
-actor CoordinatedFileManager {
+public actor CoordinatedFileManager {
     
     private(set) var presenter: (any NSFilePresenter)?
     
     private let fileManager = FileManager()
     
-    init(presenter: (any NSFilePresenter)? = nil) {
+    public init(presenter: (any NSFilePresenter)? = nil) {
         self.presenter = presenter
     }
             
-    func fileExists(coordinatingAccessAt fileURL: URL) throws -> (exists: Bool, isDirectory: Bool) {
+    public func fileExists(coordinatingAccessAt fileURL: URL) throws -> (exists: Bool, isDirectory: Bool) {
         var isDir: ObjCBool = false
         var exists: Bool = false
         try coordinate(readingItemAt: fileURL) { [self] url in
@@ -31,25 +31,25 @@ actor CoordinatedFileManager {
         return (exists, isDir.boolValue)
     }
     
-    func createDirectory(coordinatingAccessAt dirURL: URL, withIntermediateDirectories: Bool) throws {
+    public func createDirectory(coordinatingAccessAt dirURL: URL, withIntermediateDirectories: Bool) throws {
         try coordinate(writingItemAt: dirURL, options: .forMerging) { [self] url in
             try fileManager.createDirectory(at: url, withIntermediateDirectories: withIntermediateDirectories)
         }
     }
     
-    func removeItem(coordinatingAccessAt dirURL: URL) throws {
+    public func removeItem(coordinatingAccessAt dirURL: URL) throws {
         try coordinate(writingItemAt: dirURL, options: .forDeleting) { [self] url in
             try fileManager.removeItem(at: url)
         }
     }
     
-    func copyItem(coordinatingAccessFrom fromURL: URL, to toURL: URL) throws {
+    public func copyItem(coordinatingAccessFrom fromURL: URL, to toURL: URL) throws {
         try coordinate(readingItemAt: fromURL, readOptions: [], writingItemAt: toURL, writeOptions: .forReplacing) { readURL, writeURL in
             try fileManager.copyItem(at: readURL, to: writeURL)
         }
     }
     
-    func contentsOfDirectory(coordinatingAccessAt dirURL: URL, includingPropertiesForKeys keys: [URLResourceKey]?, options mask: FileManager.DirectoryEnumerationOptions) throws -> [URL] {
+    public func contentsOfDirectory(coordinatingAccessAt dirURL: URL, includingPropertiesForKeys keys: [URLResourceKey]?, options mask: FileManager.DirectoryEnumerationOptions) throws -> [URL] {
         var contentsURLs: [URL] = []
         try coordinate(readingItemAt: dirURL) { [self] url in
             contentsURLs = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask)
@@ -57,7 +57,7 @@ actor CoordinatedFileManager {
         return contentsURLs
     }
     
-    func contentsOfFile(coordinatingAccessAt url: URL) throws -> Data {
+    public func contentsOfFile(coordinatingAccessAt url: URL) throws -> Data {
         var data: Data = .init()
         try coordinate(readingItemAt: url) { url in
             data = try Data(contentsOf: url)
@@ -65,19 +65,19 @@ actor CoordinatedFileManager {
         return data
     }
     
-    func write(_ data: Data, coordinatingAccessTo url: URL) throws {
+    public func write(_ data: Data, coordinatingAccessTo url: URL) throws {
         try coordinate(writingItemAt: url) { url in
             try data.write(to: url)
         }
     }
     
-    func updateFile(coordinatingAccessTo url: URL, in block: @Sendable @escaping (URL) throws -> Void) throws {
+    public func updateFile(coordinatingAccessTo url: URL, in block: @Sendable @escaping (URL) throws -> Void) throws {
         try coordinate(writingItemAt: url) { url in
             try block(url)
         }
     }
 
-    func readFile(coordinatingAccessTo url: URL, in block: @Sendable @escaping (URL) throws -> Void) throws {
+    public func readFile(coordinatingAccessTo url: URL, in block: @Sendable @escaping (URL) throws -> Void) throws {
         try coordinate(readingItemAt: url) { url in
             try block(url)
         }
