@@ -67,7 +67,8 @@ class FileMonitor: NSObject, NSFilePresenter, @unchecked Sendable {
     
     private func relativePath(for url: URL) -> RootRelativePath {
         let rootLength = rootDirectory.resolvingSymlinksInPath().standardized.path.count
-        let path = String(url.resolvingSymlinksInPath().standardized.path.dropFirst(rootLength))
+        var path = String(url.resolvingSymlinksInPath().standardized.path.dropFirst(rootLength))
+        if path.first == "/" { path.removeFirst() }
         let rootRelativePath = RootRelativePath(path: path)
         return rootRelativePath
     }
