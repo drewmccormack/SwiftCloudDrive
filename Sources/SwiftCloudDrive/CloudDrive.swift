@@ -80,25 +80,22 @@ public final class CloudDrive {
         self.relativePathToRoot = relativePathToRoot
         
         let fileManager = FileManager.default
-        let rootDir: URL
         switch storage {
         case let .iCloudContainer(containerIdentifier):
             guard fileManager.ubiquityIdentityToken != nil else { throw Error.notSignedIntoCloud }
             guard let containerURL = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
                 throw Error.couldNotAccessUbiquityContainer
             }
-            rootDir = containerURL
             self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
-            self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
+            self.metadataMonitor = MetadataMonitor(rootDirectory: self.rootDirectory)
         case let .localDirectory(rootURL):
-            rootDir = rootURL
-            try fileManager.createDirectory(atPath: rootURL.path, withIntermediateDirectories: true)
             self.rootDirectory = URL(fileURLWithPath: relativePathToRoot, isDirectory: true, relativeTo: rootURL)
+            try fileManager.createDirectory(atPath: self.rootDirectory.path, withIntermediateDirectories: true)
             self.metadataMonitor = nil
         }
         
         // Use the FileMonitor even for non-ubiquitious files
-        let monitor = FileMonitor(rootDirectory: rootDir)
+        let monitor = FileMonitor(rootDirectory: self.rootDirectory)
         self.fileMonitor = monitor
         monitor.changeHandler = { [weak self] changedPaths in
             guard let self, let observer = self.observer else { return }
