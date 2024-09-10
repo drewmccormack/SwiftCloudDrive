@@ -23,16 +23,10 @@ let package = Package(
             dependencies: [],
             resources: [
                 .copy("PrivacyInfo.xcprivacy")
-            ],
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
             ]),
         .testTarget(
             name: "SwiftCloudDriveTests",
-            dependencies: ["SwiftCloudDrive"],
-            swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency")
-            ]),
+            dependencies: ["SwiftCloudDrive"]),
     ],
-    swiftLanguageModes: [.v5, .v6]
+    swiftLanguageModes: [.v6]
 )
