@@ -52,7 +52,7 @@ let drive = try await CloudDrive()
 If you have a custom iCloud container, simply pass the identifier in.
 
 ```swift
-let customDrive = try await CloudDrive(ubiquityContainerIdentifier: "iCloud.com.yourcompany.app")
+let customDrive = try await CloudDrive(storage: .iCloudContainer(containerIdentifier: "iCloud.com.yourcompany.app"))
 ```
 
 In the cases above, you will be accessing files directly in the root of
@@ -63,7 +63,7 @@ subdirectory of the container, like this
 let subDrive = try await CloudDrive(relativePathToRootInContainer: "Sub/Directory/Of/Choice")
 ```
 
-The `CloudDrive` will create the root directory for you, if it doesn't exist.
+The `CloudDrive` will create the directory for you, if it doesn't exist.
     
 ### Querying File Status
 
