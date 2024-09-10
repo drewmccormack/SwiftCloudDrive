@@ -1,4 +1,4 @@
-// swift-tools-version: 5.10
+// swift-tools-version: 6.0
 
 import PackageDescription
 
@@ -25,14 +25,14 @@ let package = Package(
                 .copy("PrivacyInfo.xcprivacy")
             ],
             swiftSettings: [
-//                .enableExperimentalFeature("StrictConcurrency")
+                .enableExperimentalFeature("StrictConcurrency")
             ]),
         .testTarget(
             name: "SwiftCloudDriveTests",
             dependencies: ["SwiftCloudDrive"],
             swiftSettings: [
-//                .enableExperimentalFeature("StrictConcurrency")
+                .enableExperimentalFeature("StrictConcurrency")
             ]),
     ],
-    swiftLanguageVersions: [.v5] // , .version("6")]
+    swiftLanguageModes: [.v5, .v6]
 )
