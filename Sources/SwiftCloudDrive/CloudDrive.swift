@@ -19,7 +19,7 @@ public protocol CloudDriveConflictResolver {
 /// a good solution, unless you can partition the data between root
 /// directories, and setup an cluster of CloudDrive objects to manage
 /// the contents.
-public final class CloudDrive {
+public final class CloudDrive: @unchecked Sendable {
     
     /// Types of storage available
     public enum Storage {

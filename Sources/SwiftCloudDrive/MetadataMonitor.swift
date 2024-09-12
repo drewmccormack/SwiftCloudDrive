@@ -9,7 +9,7 @@ import Foundation
 import os
 
 /// Monitors changes to the metadata, to trigger downloads of new files or updates.
-class MetadataMonitor {
+final class MetadataMonitor: @unchecked Sendable {
     
     let rootDirectory: URL
     let fileManager: FileManager = .init()
