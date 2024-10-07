@@ -22,7 +22,7 @@ let package = Package(
             name: "SwiftCloudDrive",
             dependencies: [],
             resources: [
-                .copy("PrivacyInfo.xcprivacy")
+                .process("PrivacyInfo.xcprivacy")
             ]),
         .testTarget(
             name: "SwiftCloudDriveTests",
