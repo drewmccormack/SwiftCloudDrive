@@ -88,7 +88,11 @@ public final class CloudDrive {
                 throw Error.couldNotAccessUbiquityContainer
             }
             rootDir = containerURL
-            self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
+            if relativePathToRoot.isEmpty {
+                self.rootDirectory = containerURL
+            } else {
+                self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
+            }
             self.metadataMonitor = MetadataMonitor(rootDirectory: containerURL)
         case let .localDirectory(rootURL):
             rootDir = rootURL
