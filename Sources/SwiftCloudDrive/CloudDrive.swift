@@ -86,10 +86,12 @@ public final class CloudDrive: @unchecked Sendable {
             guard let containerURL = fileManager.url(forUbiquityContainerIdentifier: containerIdentifier) else {
                 throw Error.couldNotAccessUbiquityContainer
             }
-            self.rootDirectory = containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
+            let url = relativePathToRoot.isEmpty ? containerURL : containerURL.appendingPathComponent(relativePathToRoot, isDirectory: true)
+            self.rootDirectory = url.standardizedFileURL
             self.metadataMonitor = MetadataMonitor(rootDirectory: self.rootDirectory)
         case let .localDirectory(rootURL):
-            self.rootDirectory = URL(fileURLWithPath: relativePathToRoot, isDirectory: true, relativeTo: rootURL)
+            let url = relativePathToRoot.isEmpty ? rootURL : URL(fileURLWithPath: relativePathToRoot, isDirectory: true, relativeTo: rootURL)
+            self.rootDirectory = url.standardizedFileURL
             try fileManager.createDirectory(atPath: self.rootDirectory.path, withIntermediateDirectories: true)
             self.metadataMonitor = nil
         }

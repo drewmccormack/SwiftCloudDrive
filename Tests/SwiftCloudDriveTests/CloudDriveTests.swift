@@ -59,4 +59,29 @@ final class CloudDriveTests: XCTestCase {
         XCTAssertEqual(loadData, data)
     }
     
+    func testRootDirectoryWithEmptyPath() async throws {
+        let tempDirPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
+        let url = URL(fileURLWithPath: tempDirPath, isDirectory: true)
+        let drive = try await CloudDrive(storage: .localDirectory(rootURL: url), relativePathToRoot: "")
+        XCTAssertEqual(drive.rootDirectory, url, "Root directory should match the container URL when relativePathToRoot is empty.")
+    }
+    
+    func testRootDirectoryWithValidPath() async throws {
+        let tempDirPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
+        let mockURL = URL(fileURLWithPath: tempDirPath, isDirectory: true)
+        let expectedURL = mockURL.appendingPathComponent("TestFolder", isDirectory: true)
+        let cloudDrive = try await CloudDrive(storage: .localDirectory(rootURL: mockURL), relativePathToRoot: "TestFolder")
+        
+        XCTAssertEqual(cloudDrive.rootDirectory, expectedURL, "Root directory should match the container URL with the appended relative path.")
+    }
+
+    func testRootDirectoryWithTrailingSlash() async throws {
+        let tempDirPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
+        let mockURL = URL(fileURLWithPath: tempDirPath, isDirectory: true)
+        let expectedURL = mockURL.appendingPathComponent("TestFolder", isDirectory: true)
+        let cloudDrive = try await CloudDrive(storage: .localDirectory(rootURL: mockURL), relativePathToRoot: "TestFolder/")
+        
+        XCTAssertEqual(cloudDrive.rootDirectory, expectedURL, "Root directory should ignore the trailing slash.")
+    }
+
 }
