@@ -23,38 +23,36 @@ public actor CoordinatedFileManager {
     }
             
     public func fileExists(coordinatingAccessAt fileURL: URL) throws -> (exists: Bool, isDirectory: Bool) {
-        var isDir: ObjCBool = false
-        var exists: Bool = false
-        try coordinate(readingItemAt: fileURL) { [self] url in
-            exists = fileManager.fileExists(atPath: url.path, isDirectory: &isDir)
+        let (exists, isDirectory) = try coordinate(readingItemAt: fileURL) { url in
+            var isDir: ObjCBool = false
+            let exists = self.fileManager.fileExists(atPath: url.path, isDirectory: &isDir)
+            return (exists, isDir.boolValue)
         }
-        return (exists, isDir.boolValue)
+        return (exists, isDirectory)
     }
     
     public func createDirectory(coordinatingAccessAt dirURL: URL, withIntermediateDirectories: Bool) throws {
         try coordinate(writingItemAt: dirURL, options: .forMerging) { [self] url in
-            try fileManager.createDirectory(at: url, withIntermediateDirectories: withIntermediateDirectories)
+            try self.fileManager.createDirectory(at: url, withIntermediateDirectories: withIntermediateDirectories)
         }
     }
     
     public func removeItem(coordinatingAccessAt dirURL: URL) throws {
         try coordinate(writingItemAt: dirURL, options: .forDeleting) { [self] url in
-            try fileManager.removeItem(at: url)
+            try self.fileManager.removeItem(at: url)
         }
     }
     
     public func copyItem(coordinatingAccessFrom fromURL: URL, to toURL: URL) throws {
         try coordinate(readingItemAt: fromURL, readOptions: [], writingItemAt: toURL, writeOptions: .forReplacing) { readURL, writeURL in
-            try fileManager.copyItem(at: readURL, to: writeURL)
+            try self.fileManager.copyItem(at: readURL, to: writeURL)
         }
     }
     
     public func contentsOfDirectory(coordinatingAccessAt dirURL: URL, includingPropertiesForKeys keys: [URLResourceKey]?, options mask: FileManager.DirectoryEnumerationOptions) throws -> [URL] {
-        var contentsURLs: [URL] = []
         try coordinate(readingItemAt: dirURL) { [self] url in
-            contentsURLs = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask)
+            try self.fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: mask)
         }
-        return contentsURLs
     }
     
     public func contentsOfFile(coordinatingAccessAt url: URL) throws -> Data {
@@ -96,20 +94,24 @@ public actor CoordinatedFileManager {
         self.executionBlock = nil
     }
     
-    private func coordinate(readingItemAt url: URL, options: NSFileCoordinator.ReadingOptions = [], with block: @escaping (URL) throws -> Void) throws {
+    private func coordinate<T>(readingItemAt url: URL, options: NSFileCoordinator.ReadingOptions = [], with block: @escaping (URL) throws -> T) throws -> T {
         var coordinatorError: NSError?
         var managerError: Swift.Error?
+        var result: T!
         let coordinator = NSFileCoordinator(filePresenter: presenter)
-        executionBlock = block
+        executionBlock = {
+            result = try block($0)
+        }
         coordinator.coordinate(readingItemAt: url, options: options, error: &coordinatorError) { url in
             do {
-                try execute(onSecurityScopedResource: url)
+                try self.execute(onSecurityScopedResource: url)
             } catch {
                 managerError = error
             }
         }
         guard coordinatorError == nil else { throw coordinatorError! }
         guard managerError == nil else { throw managerError! }
+        return result
     }
     
     private func coordinate(writingItemAt url: URL, options: NSFileCoordinator.WritingOptions = [], with block: @escaping (URL) throws -> Void) throws {
@@ -153,3 +155,4 @@ public actor CoordinatedFileManager {
         guard managerError == nil else { throw managerError! }
     }
 }
+
